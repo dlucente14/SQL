@@ -1,0 +1,108 @@
+/* BASIC */
+
+/* (1) What range of years are represented in the data? */ 
+
+SELECT MAX(substr(Year, 1, 4)) AS 'Max Year', MIN(substr(Year, 1, 4)) AS 'Min Year'
+FROM airfare_data; 
+
+
+/* (2) What are the shortest and longest-distanced flights, and between which 2 cities are they? */ 
+
+SELECT MIN(nsmiles), city1, city2
+FROM airfare_data; 
+
+SELECT MAX(nsmiles), city1, city2
+FROM airfare_data;
+
+--OR
+
+SELECT nsmiles, city1, city2
+FROM airfare_data
+GROUP BY nsmiles
+ORDER BY nsmiles ASC;
+
+
+/* (3) How many distinct cities are represented in the data (regardless of whether it is the source or destination)?*/
+
+SELECT DISTINCT city1 AS 'Distinct Cities'
+FROM airfare_data
+UNION
+SELECT DISTINCT city2
+FROM airfare_data;
+
+
+/* (4) Which airline appear most frequently as the carrier with the lowest fare (ie. carrier_low)? How about the airline with the 
+largest market share (ie. carrier_lg)? */
+
+SELECT carrier_low, COUNT(*)
+FROM airfare_data
+GROUP BY carrier_low
+ORDER BY 2 DESC;
+
+SELECT carrier_lg, COUNT(*)
+FROM airfare_data
+GROUP BY carrier_lg
+ORDER BY 2 DESC;
+
+
+/* (5) How many instances are there where the carrier with the largest market share is not the carrier with the lowest fare? What is the average 
+difference in fare?*/
+
+SELECT
+	CASE 
+		WHEN carrier_lg != carrier_low THEN 'Mismatch'
+		WHEN carrier_lg = carrier_low THEN 'Same'
+		ELSE 'Other'
+	END AS 'Congruency', COUNT(*)
+FROM airfare_data
+GROUP BY 1
+ORDER BY 2 DESC;
+
+SELECT AVG(fare_lg - fare_low)
+FROM airfare_data;
+
+
+/* INTERMEDIATE */
+
+/* (6) What is the percent change in average fare from 2007 to 2017 by flight? How about from 1997 to 2017? */
+
+WITH NEW_avg17 AS (
+	SELECT Year, city1, city2, AVG(fare) AS 'Avg17'
+	FROM airfare_data
+	WHERE Year = 2017
+	GROUP BY 2, 3),
+OLD_avg07 AS (
+	SELECT Year, city1, city2, AVG(fare) AS 'Avg07'
+	FROM airfare_data
+	WHERE Year = 2007
+	GROUP BY 2, 3),
+OLD_avg97 AS(
+	SELECT Year, city1, city2, AVG(fare) AS 'Avg97'
+	FROM airfare_data
+	WHERE Year = 1997
+	GROUP BY 2, 3)
+SELECT NEW_avg17.city1, NEW_avg17.city2, ROUND(((Avg17 - OLD_avg07.Avg07)/OLD_avg07.Avg07 * 100), 2) AS '% Change 2007-2017', ROUND(((Avg17 - OLD_avg97.Avg97)/OLD_avg97.Avg97 * 100), 2) AS '% Change 1997-2017'
+FROM NEW_avg17
+JOIN OLD_avg07
+	ON NEW_avg17.city1 = OLD_avg07.city1 AND NEW_avg17.city2 = OLD_avg07.city2
+JOIN OLD_avg97
+	ON NEW_avg17.city1 = OLD_avg97.city1 AND NEW_avg17.city2 = OLD_avg97.city2
+GROUP BY 1, 2
+ORDER BY 1;
+
+
+/* CHALLENGE */
+
+/*(7) What is the average fare for each quarter? Which quarter of the year has the highest overall average fare? lowest? */
+
+WITH four_quarters AS (
+	SELECT city1, city2
+	FROM airfare_data
+	GROUP BY 1, 2
+	HAVING COUNT(DISTINCT quarter) = 4)
+SELECT quarter, AVG(fare) 
+FROM airfare_data
+	JOIN four_quarters
+		ON airfare_data.city1 = four_quarters.city1 
+GROUP BY 1
+ORDER BY 2;
