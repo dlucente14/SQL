@@ -1,0 +1,73 @@
+/* (1) The locale_code column in the high school data corresponds to various levels of urbanization as listed below. 
+ Use the CASE statement to display the corresponding locale_text and locale_size in your query result.*/
+
+SELECT city, locale_code, 
+	CASE
+		WHEN substr(locale_code, 1, 1) = 1 THEN 'City'
+		WHEN substr(locale_code, 1, 1) = 2 THEN 'Suburb' 
+		WHEN substr(locale_code, 1, 1) = 3 THEN 'Town'
+		WHEN substr(locale_code, 1, 1) = 4 THEN 'Rural' 
+		ELSE 'Other'
+	END AS LocaleType,
+	CASE 
+		WHEN LocaleType = 'City' OR 'Suburb' AND substr(locale_code, 2, 1) = 1 THEN 'Large' 
+		WHEN LocaleType = 'City' OR 'Suburb' AND substr(locale_code, 2, 1) = 2 THEN 'Medium'
+		WHEN LocaleType = 'City' OR 'Suburb' AND substr(locale_code, 2, 1) = 3 THEN 'Small'
+		WHEN LocaleType = 'Town' OR 'Rural' AND substr(locale_code, 2, 1) = 1 THEN 'Fringe'
+		WHEN LocaleType = 'Town' OR 'Rural' AND substr(locale_code, 2, 1) = 2 THEN 'Distant'
+		WHEN LocaleType = 'Town' OR 'Rural' AND substr(locale_code, 2, 1) = 3 THEN 'Remote'
+	ELSE 'Other'
+	END AS LocaleSize
+FROM public_hs_data;
+
+
+/* (2) What is the minimum, maximum, and average median_household_income of the nation? for each state?*/
+
+SELECT MIN(median_household_income) AS 'MinMedian', MAX(median_household_income) AS 'MaxMedian', AVG(median_household_income) AS 'AVGMedian'
+FROM census_data
+WHERE median_household_income != 'NULL';
+
+
+/* (3) Do characteristics of the zip-code area, such as median household income, influence students’ performance in high school? */
+
+SELECT public_hs_data.zip_code, census_data.median_household_income,
+CASE
+	WHEN census_data.median_household_income < 50000 THEN 'Low'
+	WHEN census_data. median_household_income BETWEEN 50000 AND 100000 THEN 'Average'
+	WHEN census_data. median_household_income > 100000 THEN 'High'
+	ELSE 'Other'
+END AS 'MedianIncomeRange', pct_proficient_math, pct_proficient_reading
+FROM public_hs_data
+JOIN census_data	
+	ON public_hs_data.zip_code = census_data.zip_code
+GROUP BY 1
+ORDER BY 4, 5; 
+
+
+/* (4) On average, do students perform better on the math or reading exam? Find the number of states where students do better on the math exam, and vice versa. */
+
+WITH state_exam_scores AS (
+	SELECT state_code, AVG(pct_proficient_math), AVG(pct_proficient_reading), 
+		CASE 
+			WHEN AVG(pct_proficient_math) > AVG(pct_proficient_reading) THEN 'Math'
+			WHEN AVG(pct_proficient_math) < AVG(pct_proficient_reading) THEN 'Reading' 
+		ELSE 'Non-standardized'
+		END AS 'MathReadingOutcome', 
+	FROM public_hs_data
+	GROUP BY public_hs_data.state_code) 
+SELECT MathReadingOutcome, COUNT(*)
+FROM state_exam_scores
+GROUP BY MathReadingOutcome;*/
+
+
+/* (5) What is the average proficiency on state assessment exams for each zip code, and how do they compare to other zip codes in the same state? */
+
+ WITH state_exam_scores AS (
+ 	SELECT state_code, AVG(pct_proficient_math) AS 'StateMathScore'
+	FROM public_hs_data
+	GROUP BY public_hs_data.state_code)
+SELECT zip_code, public_hs_data.state_code, public_hs_data.pct_proficient_math AS 'ZipCodeMath', state_exam_scores.StateMathScore
+FROM public_hs_data
+JOIN state_exam_scores
+	ON public_hs_data.state_code = state_exam_scores.state_code
+GROUP BY zip_code;
